@@ -1,0 +1,15 @@
+--- src/org/python/core/PySystemState.java.orig	2014-05-28 11:09:26.758604716 +0100
++++ src/org/python/core/PySystemState.java	2014-05-28 11:16:59.136279132 +0100
+@@ -960,7 +960,11 @@
+         }
+         cachedir = new File(props.getProperty(PYTHON_CACHEDIR, CACHEDIR_DEFAULT_NAME));
+         if (!cachedir.isAbsolute()) {
+-            cachedir = new File(prefix == null ? null : prefix.toString(), cachedir.getPath());
++            File jythondir = new File(System.getProperty("user.home"), ".jython-cache");
++            if (!jythondir.isDirectory()) {
++                jythondir.mkdirs();
++            }
++            cachedir = new File(jythondir, cachedir.getPath());
+         }
+     }
+ 

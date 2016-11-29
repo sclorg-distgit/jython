@@ -1,0 +1,62 @@
+--- build.xml.orig	2015-04-08 23:42:46.345303431 +0100
++++ build.xml	2015-04-08 23:44:39.525852992 +0100
+@@ -139,6 +139,9 @@
+ 
+         <!-- classpaths -->
+         <path id="main.classpath">
++            <fileset dir="${extlibs.dir}">
++                <include name="**/*.jar"/>
++            </fileset>
+             <pathelement path="${extlibs.dir}/servlet-api-2.5.jar" />
+             <pathelement path="${informix.jar}" />
+             <pathelement path="${oracle.jar}" />
+--- maven/build.xml.orig	2014-05-30 09:14:45.807566331 +0100
++++ maven/build.xml	2014-05-30 09:20:08.483159086 +0100
+@@ -107,8 +107,6 @@
+ 
+       <move file="${build.dir}/@{install.name}.jar"
+             tofile="@{install.dir}/@{install.name}.jar"/>
+-      <move file="${build.dir}/@{install.name}-sources.jar"
+-            tofile="@{install.dir}/@{install.name}-sources.jar"/>
+ 
+       <checksum algorithm="SHA1" fileext=".sha1">
+         <fileset dir="@{install.dir}" excludes="*.sha1,*.md5,*.tmp"/>
+@@ -159,31 +157,6 @@
+       <copy file="${dist.base}/@{artifactId}.jar"
+             tofile="${build.dir}/@{artifactId}-${project.version}.jar"/>
+ 
+-      <copy file="dist/sources.jar" tofile="${build.dir}/@{artifactId}-${project.version}-sources.jar"/>
+-      <copy file="dist/javadoc.jar" tofile="${build.dir}/@{artifactId}-${project.version}-javadoc.jar"/>
+-
+-      <!-- TODO: make the gpg sign step optional -->
+-      <exec executable="gpg">
+-          <arg value="-ab"/>
+-          <arg value="${build.dir}/@{artifactId}-${project.version}.jar"/>
+-      </exec>
+-
+-      <exec executable="gpg">
+-          <arg value="-ab"/>
+-          <arg value="${build.dir}/@{artifactId}-${project.version}-javadoc.jar"/>
+-      </exec>
+-
+-      <exec executable="gpg">
+-          <arg value="-ab"/>
+-          <arg value="${build.dir}/@{artifactId}-${project.version}.pom"/>
+-      </exec>
+-
+-      <exec executable="gpg">
+-          <arg value="-ab"/>
+-          <arg value="${build.dir}/@{artifactId}-${project.version}-sources.jar"/>
+-      </exec>
+-
+-
+     </sequential>
+   </macrodef>
+ 
+@@ -208,5 +181,5 @@
+     <ant antfile="build.xml" target="all-jars"/>
+   </target>
+ 
+-  <target name="prep" depends="build-jython, validate-pom"/>
++  <target name="prep" depends=""/>
+ </project>

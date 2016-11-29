@@ -1,0 +1,216 @@
+diff --git a/ACKNOWLEDGMENTS b/ACKNOWLEDGMENTS
+index 9c4370e..a435834 100644
+--- a/ACKNOWLEDGMENTS
++++ b/ACKNOWLEDGMENTS
+@@ -35,6 +35,7 @@ Jython links the following libraries:
+ * Mock Runner, licensed under the Apache 1.1 license
+ * Netty 4, licensed under the Apache 2.0 license from the Netty project
+ * PyPy datetime module, licensed under the MIT License from the PyPy project
++* Java sizeof, licensed under the Apache 2.0 License from the Apache Software Foundation
+ 
+ Jython follows closely the Python language and its reference
+ implementation CPython, as created by Guido van Rossum.
+diff --git a/Lib/test/test_support.py b/Lib/test/test_support.py
+index fc33854..7d280c5 100644
+--- a/Lib/test/test_support.py
++++ b/Lib/test/test_support.py
+@@ -1021,7 +1021,7 @@ def gc_collect():
+     gc.collect()
+ 
+ 
+-_header = '2P'
++_header = '1P'
+ if hasattr(sys, "gettotalrefcount"):
+     _header = '2P' + _header
+ _vheader = _header + 'P'
+diff --git a/Lib/test/test_sys.py b/Lib/test/test_sys.py
+index e88445b..c038a9f 100644
+--- a/Lib/test/test_sys.py
++++ b/Lib/test/test_sys.py
+@@ -1,6 +1,8 @@
+ # -*- coding: iso-8859-1 -*-
+ import unittest, test.test_support
+ import sys, cStringIO
++import struct
++
+ 
+ class SysModuleTest(unittest.TestCase):
+ 
+@@ -273,12 +275,84 @@ class SysModuleTest(unittest.TestCase):
+         self.assertEqual(out, '?')
+ 
+ 
++class SizeofTest(unittest.TestCase):
++    """Jython modified version of getsizeof"""
++
++    def setUp(self):
++        self.P = struct.calcsize('P')
++        self.longdigit = sys.long_info.sizeof_digit
++        self.file = open(test.test_support.TESTFN, 'wb')
++
++    def tearDown(self):
++        self.file.close()
++        test.test_support.unlink(test.test_support.TESTFN)
++
++    check_sizeof = test.test_support.check_sizeof
++
++    def test_default(self):
++        size = test.test_support.calcobjsize
++        self.assertEqual(sys.getsizeof(True, -1), size('l'))
++
++    def test_objecttypes(self):
++        # check all types defined in Objects/
++        size = test.test_support.calcobjsize
++        vsize = test.test_support.calcvobjsize
++        check = self.check_sizeof
++        # bool
++        check(True, size('l'))
++        # buffer
++        with test.test_support.check_py3k_warnings():
++            check(buffer(''), size('1P2Pil'))
++        # builtin_function_or_method
++        check(len, size('3P'))
++        # bytearray_iterator
++        check(iter(bytearray()), size('2PP'))
++        # cell
++        def get_cell():
++            x = 42
++            def inner():
++                return x
++            return inner
++        check(get_cell().func_closure[0], size('2P'))
++        # classobj (old-style class)
++        class class_oldstyle():
++            def method():
++                pass
++        check(class_oldstyle, size('6P'))
++        # instance (old-style class)
++        check(class_oldstyle(), size('3P'))
++        # instancemethod (old-style class)
++        check(class_oldstyle().method, size('3P'))
++        # complex
++        check(complex(0,1), size('2P2d'))
++        # code
++        check(get_cell().func_code, size('4i3Pi3P'))
++        # BaseException
++        check(BaseException(), size('3P'))
++
++    def test_pythontypes(self):
++        # check all types defined in Python/
++        size = test.test_support.calcobjsize
++        vsize = test.test_support.calcvobjsize
++        check = self.check_sizeof
++        # imp.NullImporter
++        import imp
++        check(imp.NullImporter(self.file.name), size('3P'))
++        try:
++            raise TypeError
++        except TypeError:
++            tb = sys.exc_info()[2]
++            # traceback
++            if tb != None:
++                check(tb, size('2P2i'))
++
++
+ def test_main():
+     if test.test_support.is_jython:
+         del SysModuleTest.test_lost_displayhook
+         del SysModuleTest.test_refcount
+         del SysModuleTest.test_setcheckinterval
+-    test.test_support.run_unittest(SysModuleTest)
++    test.test_support.run_unittest(SysModuleTest, SizeofTest)
+ 
+ if __name__ == "__main__":
+     test_main()
+diff --git a/build.xml b/build.xml
+index 46d288f..0f15f74 100644
+--- a/build.xml
++++ b/build.xml
+@@ -155,6 +155,7 @@ oracle.jar=C:/workspace/HEAD/for_development/bisdevsrv28/jboss/server/infra/lib/
+             <pathelement path="${extlibs.dir}/guava-19.0.jar" />
+             <pathelement path="${extlibs.dir}/icu4j-56.1.jar" />
+             <pathelement path="${extlibs.dir}/jffi-1.2.10.jar"/>
++            <pathelement path="${extlibs.dir}/java-sizeof-0.0.5.jar"/>
+             <pathelement path="${extlibs.dir}/jnr-ffi-2.0.7.jar"/>
+             <pathelement path="${extlibs.dir}/jnr-netdb-1.1.5.jar"/>
+             <pathelement path="${extlibs.dir}/jnr-posix-3.0.23.jar"/>
+@@ -582,8 +583,10 @@ The readme text for the next release will be like:
+             <rule pattern="io.netty.**" result="org.python.netty.@1"/>
+             <zipfileset src="extlibs/netty-transport-4.0.33.Final.jar" excludes="META-INF/**"/>
+             <rule pattern="io.netty.**" result="org.python.netty.@1"/>
+-	    <!-- these stub jars are pre-built in https://github.com/jnr/jffi/tree/master/archive
+-	        and rarely if ever change -->
++            <zipfileset src="${extlibs.dir}/java-sizeof-0.0.5.jar"/>
++            <rule pattern="com.carrotsearch.sizeof.**" result="org.python.sizeof.@1"/>
++            <!-- these stub jars are pre-built in https://github.com/jnr/jffi/tree/master/archive
++                and rarely if ever change -->
+             <zipfileset src="extlibs/jffi-arm-Linux.jar"/>
+             <zipfileset src="extlibs/jffi-Darwin.jar"/>
+             <zipfileset src="extlibs/jffi-i386-FreeBSD.jar"/>
+diff --git a/src/org/python/core/PySystemState.java b/src/org/python/core/PySystemState.java
+index 6ec694c..335a70e 100644
+--- a/src/org/python/core/PySystemState.java
++++ b/src/org/python/core/PySystemState.java
+@@ -31,8 +31,8 @@ import java.util.concurrent.ConcurrentMap;
+ import java.util.concurrent.locks.ReentrantLock;
+ import java.util.jar.JarEntry;
+ import java.util.jar.JarFile;
+-
+ import jnr.posix.util.Platform;
++import com.carrotsearch.sizeof.RamUsageEstimator;
+ 
+ import org.python.Version;
+ import org.python.core.adapter.ClassicPyObjectAdapter;
+@@ -434,6 +434,15 @@ public class PySystemState extends PyObject implements AutoCloseable,
+         return recursionlimit;
+     }
+ 
++    @SuppressWarnings("unused")
++    public long getsizeof(Object obj, long defaultVal) {
++        return getsizeof(obj);
++    }
++
++    public long getsizeof(Object obj) {
++        return RamUsageEstimator.shallowSizeOf(obj);
++    }
++
+     public void setrecursionlimit(int recursionlimit) {
+         if (recursionlimit <= 0) {
+             throw Py.ValueError("Recursion limit must be positive");
+diff --git a/src/org/python/modules/gc.java b/src/org/python/modules/gc.java
+index 633621e..997a97a 100644
+--- a/src/org/python/modules/gc.java
++++ b/src/org/python/modules/gc.java
+@@ -2558,13 +2558,30 @@ public class gc {
+     }
+ 
+     /**
+-     * Not supported by Jython.
++     * Only works reliably if {@code monitorGlobal} is active, as it depends on
++     * monitored objects to search for referrers. It only finds referrers that
++     * properly implement the traverseproc mechanism (unless reflection-based
++     * traversion is activated and works stable).
+      * Throws {@link org.python.core.Py#NotImplementedError}.
+      *
+      * @throws org.python.core.Py.NotImplementedError
+      */
+     public static PyObject get_objects() {
+-        throw Py.NotImplementedError("not applicable to Java GC");
++        if (!isMonitoring()) {
++            throw Py.NotImplementedError(
++                    "not applicable in Jython if gc module is not monitoring PyObjects");
++        }
++        ArrayList<PyObject> resultList = new ArrayList<>(monitoredObjects.size());
++        synchronized (monitoredObjects) {
++            for (WeakReferenceGC src: monitoredObjects) {
++                PyObject obj = src.get();
++                if (isTraversable(obj)) {
++                    resultList.add(obj);
++                }
++            }
++        }
++        resultList.trimToSize();
++        return new PyList(resultList);
+     }
+ 
+     /**
